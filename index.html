@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #87CEEB;
+            touch-action: none;
+        }
+
+        #start-screen {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: url('cielo.png') no-repeat center center;
+            background-size: cover;
+            text-align: center;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: url('cielo.png') no-repeat center center;
+            background-size: cover;
+            display: none;
+        }
+
+        #win-screen {
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #87CEEB;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 32px;
+            color: #333;
+            margin: 20px;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .text {
+            font-size: 18px;
+            color: #333;
+            margin: 20px;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #start-button, #restart-button {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #player {
+            width: 100px; /* Aumentata ulteriormente la dimensione del personaggio */
+            height: 100px;
+            position: absolute;
+            bottom: 0; /* Posizionato completamente in basso */
+            background: url('silvia.png') no-repeat center center;
+            background-size: cover;
+        }
+
+        .cat {
+            width: 50px; /* Aumentata la dimensione del gatto */
+            height: 50px;
+            position: absolute;
+            background-size: cover;
+            background-repeat: no-repeat;
+            border-radius: 25%;
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 20px;
+            color: #333;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #qr-code {
+            width: 200px;
+            height: 200px;
+            background: #fff;
+            margin: 20px;
+        }
+    </style>
+<audio id="background-music" src="canzone.mp3" autoplay loop></audio>
+</head>
+<body>
+    <div id="start-screen">
+        <h1 class="title">Salva Gin e Toni</h1>
+        <p class="text">Cattura 20 gatti per vincere!</p>
+        <button id="start-button">START</button>
+    </div>
+
+    <div id="game-container">
+        <div id="score">Gatti catturati: 0</div>
+        <div id="player"></div>
+    </div>
+
+    <div id="win-screen">
+        <h1 class="title">Complimenti hai vinto un premio!</h1>
+        <p class="text">Clicca qui e scansiona il QR code.</p>
+        <div id="qr-code">[Spazio per QR Code]</div>
+        <p class="text">Utilizza le credenziali fornite.</p>
+        <button id="restart-button">Rigioca</button>
+    </div>
+
+    <script>
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.getElementById('start-button');
+        const gameContainer = document.getElementById('game-container');
+        const player = document.getElementById('player');
+        const scoreElement = document.getElementById('score');
+        const winScreen = document.getElementById('win-screen');
+        const restartButton = document.getElementById('restart-button');
+
+        let score = 0;
+        let gameSpeed = 2000; // Ridotto il tempo per rendere il gioco più difficile
+        let isGameActive = false;
+        let catCount = 0; // Contatore per i gatti attualmente in gioco
+        let maxX;
+
+        const fallingCats = [];
+
+        function updateMaxX() {
+            maxX = window.innerWidth - player.offsetWidth;
+        }
+
+        window.addEventListener('resize', updateMaxX);
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+
+        function startGame() {
+            startScreen.style.display = 'none';
+            winScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            isGameActive = true;
+            score = 0;
+            catCount = 0;
+            scoreElement.textContent = "Gatti catturati: 0";
+            updateMaxX();
+            spawnCats();
+            startFallingLoop();
+        }
+
+        function restartGame() {
+            winScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (isGameActive) {
+                const x = e.clientX;
+                const newX = Math.max(0, Math.min(maxX, x - player.offsetWidth / 2));
+                player.style.left = newX + 'px';
+            }
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isGameActive) {
+                e.preventDefault();
+                const x = e.touches[0].clientX;
+                const newX = Math.max(0, Math.min(maxX, x - player.offsetWidth / 2));
+                player.style.left = newX + 'px';
+            }
+        }, { passive: false });
+
+        function createCat() {
+            if (!isGameActive || catCount >= 2) return; // Massimo 2 gatti contemporaneamente
+
+            catCount++;
+            const cat = document.createElement('div');
+            cat.className = 'cat';
+            const maxXCat = window.innerWidth - 50; // Aggiornato per la nuova dimensione dei gatti
+            cat.style.left = Math.random() * maxXCat + 'px';
+            cat.style.top = '0px';
+            
+            // Alterna tra le immagini dei gatti
+            const catType = Math.random() > 0.5 ? "pino.png" : "cat2.png";
+            cat.style.backgroundImage = `url('${catType}')`;
+
+            gameContainer.appendChild(cat);
+            fallingCats.push({ cat, posY: 0 });
+        }
+
+        function startFallingLoop() {
+            function updateFallingCats() {
+                if (!isGameActive) return;
+
+                fallingCats.forEach((fallingCat, index) => {
+                    const { cat, posY } = fallingCat;
+                    fallingCat.posY += 5; // Aumentata la velocità di caduta per rendere il gioco più difficile
+                    cat.style.top = `${fallingCat.posY}px`;
+
+                    const catRect = cat.getBoundingClientRect();
+                    const playerRect = player.getBoundingClientRect();
+
+                    if (checkCollision(catRect, playerRect)) {
+                        cat.remove();
+                        fallingCats.splice(index, 1);
+                        catCount--;
+                        score++;
+                        scoreElement.textContent = `Gatti catturati: ${score}`;
+                        gameSpeed = Math.max(800, gameSpeed - 100); // Aumentata la difficoltà riducendo il tempo minimo
+
+                        if (score >= 20) {
+                            winGame();
+                        }
+                    } else if (fallingCat.posY > window.innerHeight) {
+                        alert("Game Over!");
+                        isGameActive = false;
+                        startScreen.style.display = 'flex';
+                        gameContainer.style.display = 'none';
+                        fallingCats.splice(index, 1);
+                        cat.remove();
+                        catCount--;
+                    }
+                });
+
+                requestAnimationFrame(updateFallingCats);
+            }
+
+            requestAnimationFrame(updateFallingCats);
+        }
+
+        function checkCollision(rect1, rect2) {
+            return !(rect1.right < rect2.left || 
+                    rect1.left > rect2.right || 
+                    rect1.bottom < rect2.top || 
+                    rect1.top > rect2.bottom);
+        }
+
+        function spawnCats() {
+            if (isGameActive) {
+                createCat();
+                setTimeout(spawnCats, gameSpeed);
+            }
+        }
+
+        function winGame() {
+            isGameActive = false;
+            gameContainer.style.display = 'none';
+            winScreen.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
